@@ -50,11 +50,11 @@ def load_data():
     user2job = defaultdict(list)
     for i, j in edges_test:
         user2job[i].append(j)
-    neg_size=int(test.shape[0]/len(user2job))
+    neg_size=int(edges_test.shape[0]/len(user2job))
 
     neg = []
     job_set = set(edges_test[:,1])
-    for user in user2job:
+    for user in tqdm(user2job,desc='Create neg edge'):
         neg_jobs = random.sample(job_set.difference(user2job[user]), neg_size)
         for neg_job in neg_jobs:
             neg.append((user, neg_job))
