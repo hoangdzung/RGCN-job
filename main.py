@@ -8,6 +8,8 @@ import numpy as np
 from tqdm import tqdm 
 import argparse
 import os 
+from sklearn.metrics import roc_auc_score
+from scipy.spatial.distance import cosine
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -43,7 +45,7 @@ torch.cuda.manual_seed(args.seed)
 if not os.path.isdir(args.model_dir):
     os.makedirs(args.model_dir)
 
-G, edge_test = load_data()
+G, pos_edge_test, neg_edge_test = load_data()
 dataset = SAGEDataset(G, args.batch_size, args.neg_size, args.swap)
 
 model = HeteroRGCN(G, args.hidden_dim, args.out_dim)
@@ -100,4 +102,20 @@ for epoch in range(args.epochs):
         np.save(os.path.join(args.model_dir, 'all_embeddings.npy'), best_embeddings)
         torch.save(model.state_dict(), os.path.join(args.model_dir, 'model.pt'))
 
+        pred = []
+        gt = []
 
+        pos_user_embeddings = logits['user'].detach().cpu().numpy()[pos_edge_test[:,0]]
+        pos_job_embeddings = logits['job'].detach().cpu().numpy()[pos_edge_test[:,1]]
+        for i in range(pos_job_embeddings.shape[0]):
+            pred.append(cosine(pos_user_embeddings[i], pos_job_embeddings[i]))
+            gt.append(1)
+
+        neg_user_embeddings = logits['user'].detach().cpu().numpy()[neg_edge_test[:,0]]
+        neg_job_embeddings = logits['job'].detach().cpu().numpy()[neg_edge_test[:,1]]
+        for i in range(pos_job_embeddings.shape[0]):
+            pred.append(cosine(neg_user_embeddings[i], neg_job_embeddings[i]))
+            gt.append(0)
+
+        print(roc_auc_score(np.array(pred), np.array(gt)))
+        
