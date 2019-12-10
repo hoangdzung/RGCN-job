@@ -5,11 +5,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class HeteroRGCNLayer(nn.Module):
-    def __init__(self, in_size, out_size, etypes):
+    def __init__(self, G, out_size):
         super(HeteroRGCNLayer, self).__init__()
         # W_r for each relation
         self.weight = nn.ModuleDict({
-                name : nn.Linear(in_size, out_size) for name in etypes
+                # name : nn.Linear(in_size, out_size) for name in etypes
+                etype : nn.Linear(G.nodes[srctype].data["features"].shape[-1], out_size) for srctype, etype, dsttype in G.canonical_etypes
             })
 
     def forward(self, G, feat_dict):
@@ -33,20 +34,18 @@ class HeteroRGCNLayer(nn.Module):
         return {ntype : G.nodes[ntype].data['h'] for ntype in G.ntypes}
 
 class HeteroRGCN(nn.Module):
-    def __init__(self, G, in_size, hidden_size, out_size):
+    def __init__(self, G, hidden_size, out_size):
         super(HeteroRGCN, self).__init__()
-        # Use trainable node embeddings as featureless inputs.
-        embed_dict = {ntype : nn.Parameter(torch.Tensor(G.number_of_nodes(ntype), in_size))
-                      for ntype in G.ntypes}
-        for key, embed in embed_dict.items():
-            nn.init.xavier_uniform_(embed)
-        self.embed = nn.ParameterDict(embed_dict)
         # create layers
-        self.layer1 = HeteroRGCNLayer(in_size, hidden_size, G.etypes)
-        self.layer2 = HeteroRGCNLayer(hidden_size, out_size, G.etypes)
+        self.layer1 = HeteroRGCNLayer(G, hidden_size)
+        self.layer2 = HeteroRGCNLayer(G, out_size)
 
     def forward(self, G):
-        h_dict = self.layer1(G, self.embed)
+        embed = nn.ParameterDict({ntype : nn.Parameter(G.nodes[ntype].data["feats"], requires_grad=False) 
+                    for ntype in G.ntypes})
+        if next(self.parameters()).is_cuda:
+            embed =embed.cuda()                
+        h_dict = self.layer1(G, embed)
         h_dict = {k : F.leaky_relu(h) for k, h in h_dict.items()}
         h_dict = self.layer2(G, h_dict)
         # get paper logits
