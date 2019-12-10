@@ -16,7 +16,9 @@ def load_data():
 
     user2id = json.load(open('./data/user2id.json'))
     job2id = json.load(open('./data/job2id.json'))
-
+    
+    user2id = {int(k):int(v) for k,v in user2id.items()}
+    job2id = {int(k):int(v) for k,v in job2id.items()}
     id2user = {v:k for k,v in user2id.items()}
     id2job = {v:k for k,v in job2id.items()}
 

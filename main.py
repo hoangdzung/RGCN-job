@@ -65,7 +65,7 @@ for epoch in range(args.epochs):
         pos0 = batch_edges[:,0]
         pos1 = batch_edges[:,1]
 
-        logits = model(G, args.features_key, args.learn_feats)
+        logits = model(G)
         all_embeddings = torch.cat([logits[ntype] for ntype in G.ntypes])
 
         embedings0 = F.normalize(all_embeddings[pos0], dim=1)

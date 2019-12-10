@@ -5,13 +5,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class HeteroRGCNLayer(nn.Module):
-    def __init__(self, G, out_size):
+    def __init__(self, G, in_size=None, out_size=64):
         super(HeteroRGCNLayer, self).__init__()
         # W_r for each relation
-        self.weight = nn.ModuleDict({
+        if in_size is None:
+            self.weight = nn.ModuleDict({
                 # name : nn.Linear(in_size, out_size) for name in etypes
-                etype : nn.Linear(G.nodes[srctype].data["features"].shape[-1], out_size) for srctype, etype, dsttype in G.canonical_etypes
+                etype : nn.Linear(G.nodes[srctype].data["feats"].shape[-1], out_size) for srctype, etype, dsttype in G.canonical_etypes
             })
+        else:
+            self.weight = nn.ModuleDict({
+                    etype : nn.Linear(in_size, out_size) 
+                    for srctype, etype, dsttype in G.canonical_etypes
+            })
+
 
     def forward(self, G, feat_dict):
         # The input is a dictionary of node features for each type
@@ -37,8 +44,8 @@ class HeteroRGCN(nn.Module):
     def __init__(self, G, hidden_size, out_size):
         super(HeteroRGCN, self).__init__()
         # create layers
-        self.layer1 = HeteroRGCNLayer(G, hidden_size)
-        self.layer2 = HeteroRGCNLayer(G, out_size)
+        self.layer1 = HeteroRGCNLayer(G=G, out_size=hidden_size)
+        self.layer2 = HeteroRGCNLayer(G=G,in_size=hidden_size, out_size=out_size)
 
     def forward(self, G):
         embed = nn.ParameterDict({ntype : nn.Parameter(G.nodes[ntype].data["feats"], requires_grad=False) 
