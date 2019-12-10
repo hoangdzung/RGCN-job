@@ -47,23 +47,26 @@ def load_data():
         edges_test[i][0] = user2id[edges_test[i][0]]
         edges_test[i][1] = job2id[edges_test[i][1]]
 
-    user2job = defaultdict(list)
-    for i, j in edges_test:
-        user2job[i].append(j)
-    neg_size=int(test.shape[0]/len(user2job))
+    if os.path.isfile('./data/neg-apps-test.npy'):
+        neg = np.load('./data/neg-apps-test.npy')
+    else:
+        user2job = defaultdict(list)
+        for i, j in edges_test:
+            user2job[i].append(j)
+        neg_size=int(test.shape[0]/len(user2job))
 
-    neg = []
-    job_set = set(edges_test[:,1])
-    for user in user2job:
-        neg_jobs = random.sample(job_set.difference(user2job[user]), neg_size)
-        for neg_job in neg_jobs:
-            neg.append((user, neg_job))
-    
+        neg = []
+        job_set = set(edges_test[:,1])
+        for user in user2job:
+            neg_jobs = random.sample(job_set.difference(user2job[user]), neg_size)
+            for neg_job in neg_jobs:
+                neg.append((user, neg_job))
+        neg = np.array(neg)
     graph = dgl.heterograph(edge_data, num_nodes_dict={'user': len(user2id), 'job': len(job2id)})
     graph.nodes['user'].data['feats'] = torch.FloatTensor(np.load('./data/user-feats.npy'))
     graph.nodes['job'].data['feats'] = torch.FloatTensor(np.load('./data/job-feats.npy'))
 
-    return graph, edges_test, np.array(neg)
+    return graph, edges_test, neg
 
 class SAGEDataset():
     def __init__(self,dgl_G, batch_size=512, neg_size=20, swap=False):
